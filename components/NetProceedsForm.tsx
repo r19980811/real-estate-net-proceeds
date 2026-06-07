@@ -42,6 +42,8 @@ const initialData: FormData = {
 export default function NetProceedsForm() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   const result = useMemo(() => {
     return calculateNetProceeds({
@@ -63,6 +65,61 @@ export default function NetProceedsForm() {
       maximumFractionDigits: 0,
     }).format(value);
   };
+
+  const submit = async () => {
+    if (!form.name || !form.phone || !form.email) {
+      alert("お名前・電話番号・メールアドレスを入力してください。");
+      return;
+    }
+
+    if (!form.consent) {
+      alert("個人情報の第三者提供に同意してください。");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const payload = {
+      ...form,
+      expected_price: Number(form.expected_price) || 0,
+      loan_balance: Number(form.loan_balance) || 0,
+      brokerage_fee: result.brokerageFee,
+      registration_cost: result.registrationCost,
+      other_cost: result.otherCost,
+      total_cost: result.totalCost,
+      net_proceeds: result.netProceeds,
+    };
+
+    const res = await fetch("/api/leads", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setIsSubmitting(false);
+
+    if (!res.ok) {
+      alert("送信に失敗しました。時間をおいて再度お試しください。");
+      return;
+    }
+
+    setCompleted(true);
+  };
+
+  if (completed) {
+    return (
+      <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+        <h2 className="text-2xl font-bold text-[#0B1F3A]">
+          送信が完了しました
+        </h2>
+        <p className="mt-4 text-slate-600">
+          内容を確認のうえ、担当者よりご連絡いたします。
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
@@ -197,10 +254,11 @@ export default function NetProceedsForm() {
           </button>
         ) : (
           <button
-            onClick={() => alert("次のステップで送信機能を追加します")}
-            className="w-full rounded-full bg-[#C9A24A] px-6 py-3 font-semibold text-[#0B1F3A]"
+            onClick={submit}
+            disabled={isSubmitting}
+            className="w-full rounded-full bg-[#C9A24A] px-6 py-3 font-semibold text-[#0B1F3A] disabled:opacity-60"
           >
-            診断結果を送信する
+            {isSubmitting ? "送信中..." : "診断結果を送信する"}
           </button>
         )}
       </div>
